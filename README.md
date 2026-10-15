@@ -65,6 +65,8 @@ acs claude glmb    # 直达启动（供应商名支持唯一前缀）
 | `acs preset [cli]` | 重新生成 hybrid CLI 的配置预置段 |
 | `acs list [cli]` | 列出供应商配置（脱敏） |
 | `acs status` | 三端挂载体检 + 各 CLI 状态总览 |
+| `acs uninstall` | 完全卸载：移除三端挂载与全部数据（含 API Key，需确认；详见[卸载](#卸载)） |
+| `acs help` / `acs version` | 命令一览 / 版本号 |
 
 ## 供应商模型组（v0.4）
 
