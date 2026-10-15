@@ -117,6 +117,26 @@ L2 说明：预置只写 base_url 与密钥变量指针（不含密钥），密�
 - `acs list` / `acs status` 默认脱敏（只显示 Key 指纹）
 - L2 预置块不含密钥，配置文件可以正常纳入用户自己的同步/备份
 
+## 卸载
+
+终端内执行（移除三端挂载与 `~\.acs\` 全部数据，**含 API Key、不可恢复**，需 y/N 确认）：
+
+```powershell
+acs uninstall
+```
+
+或使用独立卸载脚本（默认**保留** suppliers.json 供应商数据，`-Purge` 才连数据一起删）：
+
+```powershell
+# 本地仓库
+./uninstall.ps1
+
+# 远程
+irm https://raw.githubusercontent.com/ldtmore/AgentCliSwitch/main/uninstall.ps1 | iex
+```
+
+卸载后当前已开终端里的 `acs` 命令仍可用至窗口关闭，新开终端即完全还原。
+
 ## License
 
 MIT

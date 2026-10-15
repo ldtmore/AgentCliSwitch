@@ -6,7 +6,7 @@
 #  原理: 进程级 export 注入 + unset 退出还原（继承 ccs 生产验证方案）
 # ============================================================================
 
-_ACS_VERSION="v0.4.0"
+_ACS_VERSION="v0.4.1"
 _ACS_DIR="$HOME/.acs"
 _ACS_CLIS="$_ACS_DIR/clis.json"
 _ACS_DATA="$_ACS_DIR/suppliers.json"
@@ -728,6 +728,7 @@ _acs_help() {
         ["诊断", [
           ["acs list [cli]", "列出供应商配置（脱敏）"],
           ["acs status", "三端挂载体检 + 各 CLI 状态总览"],
+          ["acs uninstall", "完全卸载（移除挂载与全部数据）"],
           ["acs help / version", "本帮助 / 版本号"]
         ]]
       ];
@@ -1744,6 +1745,66 @@ _acs_status() {
 }
 
 # ----------------------------------------------------------------------------
+# 卸载
+# ----------------------------------------------------------------------------
+
+# 从单个配置文件移除 acs 挂载块（与 uninstall.ps1 相同 marker）；$1=文件路径
+_acs_uninstall_mount() {
+    local p="$1"
+    [ -f "$p" ] || return 0
+    grep -qs '# >>> acs (AgentCliSwitch) >>>' "$p" || return 0
+    sed -i '/# >>> acs (AgentCliSwitch) >>>/,/# <<< acs <<</d' "$p"
+    printf '  \e[32m✔ 已移除挂载: %s\e[0m\n' "$p"
+}
+
+# acs uninstall：完全卸载（移除三端挂载 + ~/.acs 全部数据，回归安装前状态；需确认）
+_acs_uninstall() {
+    local count=0
+    count=$(ACS_DATA="$_ACS_DATA" node -e '
+      const fs = require("fs");
+      try {
+        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8"));
+        let n = 0;
+        for (const k of Object.keys(j)) {
+          if (k.startsWith("_") || !j[k] || typeof j[k] !== "object") continue;
+          n += Object.keys(j[k]).length;
+        }
+        console.log(n);
+      } catch (e) { console.log(0); }
+    ')
+    echo
+    _acs_header 'acs 完全卸载' '' 33
+    echo
+    printf '  将移除：\n'
+    printf '    · 三端挂载（PS7 / PS5.1 / Git Bash Profile 中的 acs 挂载块）\n'
+    printf '    · 程序文件与全部数据 %s\n' "$_ACS_DIR"
+    printf '    \e[33m· suppliers.json 的全部数据（当前 %s 个供应商，含明文 API Key，删除后不可恢复）\e[0m\n' "$count"
+    printf '  如需保留供应商配置，请先自行备份该文件后再卸载\n'
+    echo
+    local r
+    printf '  \e[33m确认完全卸载? (y/N) ▸ \e[0m'; IFS= read -r r
+    [ "${r,,}" = "y" ] || { printf '  \e[2m已取消。\e[0m\n'; return 0; }
+    # 1. 移除三端挂载块（Documents 可能被 OneDrive 重定向）
+    local doc="" c
+    for c in "$USERPROFILE/Documents" "$USERPROFILE/OneDrive/Documents" "$USERPROFILE/OneDrive/文档"; do
+        [ -d "$c" ] && doc="$c" && break
+    done
+    [ -n "$doc" ] || doc="$USERPROFILE/Documents"
+    _acs_uninstall_mount "$doc/PowerShell/Microsoft.PowerShell_profile.ps1"
+    _acs_uninstall_mount "$doc/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"
+    _acs_uninstall_mount "$HOME/.bashrc"
+    # 2. 删除程序文件与全部数据（脚本本体亦在其中，bash 已加载进内存，删除安全）
+    if [ -d "$_ACS_DIR" ]; then
+        rm -rf "$_ACS_DIR"
+        printf '  \e[32m✔ 已删除 %s\e[0m\n' "$_ACS_DIR"
+    fi
+    echo
+    printf '  \e[32m✔ 卸载完成。\e[0m\n'
+    printf '  \e[2m当前终端的 acs 命令仍可用至窗口关闭，新开终端即完全还原。\e[0m\n'
+    return 0
+}
+
+# ----------------------------------------------------------------------------
 # 主入口 acs
 # ----------------------------------------------------------------------------
 acs() {
@@ -1759,6 +1820,7 @@ acs() {
         status|-s|--status) _acs_status; return $? ;;
         help|-h|--help)     _acs_help; return 0 ;;
         version|-v|--version) printf '  acs %s\n' "$_ACS_VERSION"; return 0 ;;
+        uninstall|--uninstall) _acs_uninstall; return 0 ;;
     esac
 
     # 空状态引导：还没有配置文件时直接询问是否进入添加向导
@@ -2143,7 +2205,7 @@ acs() {
 _acs_complete() {
     local w1="${COMP_WORDS[1]-}" keys
     if [ "${COMP_CWORD}" -eq 1 ]; then
-        keys="$(_acs_active_clis 2>/dev/null | tr '\n' ' ')add edit remove import recheck preset list status help version "
+        keys="$(_acs_active_clis 2>/dev/null | tr '\n' ' ')add edit remove import recheck preset list status help version uninstall "
         COMPREPLY=($(compgen -W "$keys" -- "${COMP_WORDS[COMP_CWORD]}"))
     elif [ "${COMP_CWORD}" -eq 2 ]; then
         case "$w1" in

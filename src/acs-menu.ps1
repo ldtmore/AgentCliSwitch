@@ -4,7 +4,7 @@
 #  原理: 进程级环境变量注入 + try/finally 退出还原（继承 ccs 生产验证方案）
 # ============================================================================
 
-$script:AcsVersion  = 'v0.4.0'
+$script:AcsVersion  = 'v0.4.1'
 $script:AcsDir      = Join-Path $HOME '.acs'
 $script:AcsClisFile = Join-Path $script:AcsDir 'clis.json'
 $script:AcsDataFile = Join-Path $script:AcsDir 'suppliers.json'
@@ -1707,6 +1707,65 @@ function Show-AcsStatus {
 }
 
 # ----------------------------------------------------------------------------
+# 卸载
+# ----------------------------------------------------------------------------
+
+# 从单个配置文件移除 acs 挂载块（与 uninstall.ps1 相同的 marker 正则）
+function Remove-AcsUninstallMount {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return }
+    $raw = Get-Content $Path -Raw -ErrorAction SilentlyContinue
+    if (-not $raw -or -not ($raw -match [regex]::Escape('# >>> acs (AgentCliSwitch) >>>'))) { return }
+    $pattern = '(?s)\r?\n?# >>> acs \(AgentCliSwitch\) >>>.*?# <<< acs <<<\r?\n?'
+    $new = [regex]::Replace($raw, $pattern, "`n")
+    $isBash = ($Path -like '*.bashrc') -or ($Path -like '*.bash_profile')
+    if ($isBash) {
+        [IO.File]::WriteAllText($Path, $new, (New-Object System.Text.UTF8Encoding($false)))
+    } else {
+        [IO.File]::WriteAllText($Path, $new, (New-Object System.Text.UTF8Encoding($true)))
+    }
+    Write-Host ('  ✔ 已移除挂载: {0}' -f $Path) -ForegroundColor Green
+}
+
+# acs uninstall：完全卸载（移除三端挂载 + ~/.acs 全部数据，回归安装前状态；需确认）
+function Invoke-AcsUninstall {
+    # 统计供应商数量供警示（数据可能不存在，容忍缺失）
+    $count = 0
+    $map = Get-AcsSupplierMap -Quiet
+    if ($map) {
+        foreach ($g in $map.Keys) {
+            $l = Get-AcsSupplierList -CliId $g -Map $map
+            if ($l) { $count += $l.Count }
+        }
+    }
+    Write-Host ''
+    Write-AcsHeader -Title 'acs 完全卸载' -Color Yellow
+    Write-Host ''
+    Write-Host '  将移除：'
+    Write-Host '    · 三端挂载（PS7 / PS5.1 / Git Bash Profile 中的 acs 挂载块）'
+    Write-Host ('    · 程序文件与全部数据 {0}' -f $script:AcsDir)
+    Write-Host ('    · suppliers.json 的全部数据（当前 {0} 个供应商，含明文 API Key，删除后不可恢复）' -f $count) -ForegroundColor Yellow
+    Write-Host '  如需保留供应商配置，请先自行备份该文件后再卸载'
+    Write-Host ''
+    $r = Read-Host '  确认完全卸载? (y/N) ▸'
+    if ($r -notmatch '^[yY]$') { Write-Host '  已取消。' -ForegroundColor DarkGray; return }
+
+    # 1. 移除三端挂载块（Documents 可能被 OneDrive 重定向）
+    $doc = [Environment]::GetFolderPath('MyDocuments')
+    Remove-AcsUninstallMount -Path (Join-Path $doc 'PowerShell\Microsoft.PowerShell_profile.ps1')
+    Remove-AcsUninstallMount -Path (Join-Path $doc 'WindowsPowerShell\Microsoft.PowerShell_profile.ps1')
+    Remove-AcsUninstallMount -Path (Join-Path $HOME '.bashrc')
+    # 2. 删除程序文件与全部数据（脚本本体亦在其中，PS 已加载进内存，删除安全）
+    if (Test-Path $script:AcsDir) {
+        Remove-Item $script:AcsDir -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host ('  ✔ 已删除 {0}' -f $script:AcsDir) -ForegroundColor Green
+    }
+    Write-Host ''
+    Write-Host '  ✔ 卸载完成。' -ForegroundColor Green
+    Write-Host '  当前终端的 acs 命令仍可用至窗口关闭，新开终端即完全还原。' -ForegroundColor DarkGray
+}
+
+# ----------------------------------------------------------------------------
 # 主入口
 # ----------------------------------------------------------------------------
 
@@ -1733,6 +1792,7 @@ function Show-AcsHelp {
         @('诊断', @(
             @('acs list [cli]',             '列出供应商配置（脱敏）'),
             @('acs status',                 '三端挂载体检 + 各 CLI 状态总览'),
+            @('acs uninstall',              '完全卸载（移除挂载与全部数据）'),
             @('acs help / version',         '本帮助 / 版本号')
         ))
     )) {
@@ -1761,6 +1821,7 @@ function Invoke-Acs {
         $sc = ([string]$args[0]).ToLower()
         $isPaste = ($args -contains '-paste') -or ($args -contains '--paste')
         if ($sc -in @('help', '-h', '--help', '/?')) { Show-AcsHelp; return }
+        if ($sc -in @('uninstall', '--uninstall')) { Invoke-AcsUninstall; return }
         if ($sc -in @('version', '-v', '--version')) { Write-Host ('  acs {0}' -f $script:AcsVersion); return }
         if ($sc -in @('add', '-a', '--add'))     {
             $cid = $null
@@ -2013,7 +2074,7 @@ Register-ArgumentCompleter -CommandName 'Invoke-Acs', 'acs' -ScriptBlock {
         if ($elemCount -gt 4) { return }
         $clis = Get-AcsClis -Quiet
         if ($null -eq $clis) { return }
-        $subCmds = @('add', 'edit', 'remove', 'import', 'recheck', 'preset', 'list', 'status', 'help', 'version')
+        $subCmds = @('add', 'edit', 'remove', 'import', 'recheck', 'preset', 'list', 'status', 'help', 'version', 'uninstall')
         # 第 1 个参数位置：子命令 + CLI 名
         if ($elemCount -le 2) {
             $cands = $subCmds + @($clis.Keys)
