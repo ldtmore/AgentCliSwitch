@@ -1,0 +1,48 @@
+{
+  "_说明": "acs 供应商配置（用户数据）。结构: { CLI名: { 供应商ID: { desc: 显示名, env: { 变量名: 值 }, preset: { baseUrl, model, modelFast(可选,快速模型), protocol, wireApi, mode } } } }。official 条目 = 走该 CLI 官方原生通道（env 留空）。L1 型 CLI（claude/gemini/qwen/codebuddy/iflow/kimicode）条目只需 env；L2 hybrid 型（codex/opencode/crush）条目额外带 preset 段（acs 预置器消费，密钥只存 env）。建议用 'acs add' 向导添加。Key 为明文，请勿提交 git 或截图外发。",
+  "claude": {
+    "official": { "desc": "官方 Anthropic" },
+    "glma": {
+      "desc": "智谱GLM · 账号A",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "在此填入账号A的APIKey",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1m]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1m]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash[1m]",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        "API_TIMEOUT_MS": "3000000"
+      }
+    }
+  },
+  "gemini": {
+    "official": { "desc": "官方 Google 登录" }
+  },
+  "qwen": {
+    "official": { "desc": "官方 Qwen 登录" }
+  },
+  "codebuddy": {
+    "official": { "desc": "官方 CodeBuddy" }
+  },
+  "iflow": {
+    "official": { "desc": "官方 iFlow" }
+  },
+  "kimicode": {
+    "official": { "desc": "官方 Kimi" }
+  },
+  "codex": {
+    "official": { "desc": "官方 ChatGPT 登录" },
+    "dsh": {
+      "desc": "DeepSeek（示例条目，用 acs add 添加后自动生成此结构）",
+      "env": { "ACS_CODEX_DSH_KEY": "在此填入DeepSeek的APIKey" },
+      "preset": { "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-chat", "protocol": "openai", "wireApi": "responses" }
+    }
+  },
+  "opencode": {
+    "official": { "desc": "官方 OpenCode" }
+  },
+  "crush": {
+    "official": { "desc": "官方 Crush" }
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "_说明": "acs CLI 知识库（随 acs 分发，用户一般不需要修改）。adapter: env=纯环境变量注入; hybrid=配置预置(一次性,不含密钥)+环境变量注入密钥+启动参数。baseEnvKeys=official 入口与每次拉起前要清理的变量。keyEnv/baseUrlEnv/modelEnv=L1 add 向导的变量映射。launchStyle(L2): profile=--profile 启动; modelArg=-m provider/model 启动; envOnly=仅注入变量。presets=acs add 内置预设（baseUrl 来源：ccs 生产验证或各供应商官方文档）",
+  "claude": {
+    "name": "Claude Code",
+    "cmd": "claude",
+    "adapter": "env",
+    "keyEnv": "ANTHROPIC_AUTH_TOKEN",
+    "baseUrlEnv": "ANTHROPIC_BASE_URL",
+    "modelEnv": "ANTHROPIC_MODEL",
+    "baseEnvKeys": [
+      "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL",
+      "ANTHROPIC_SMALL_FAST_MODEL",
+      "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+      "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "API_TIMEOUT_MS"
+    ],
+    "presets": {
+      "zhipu": {
+        "desc": "智谱GLM",
+        "baseUrl": "https://open.bigmodel.cn/api/anthropic",
+        "env": {
+          "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1m]",
+          "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3[1m]",
+          "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash[1m]",
+          "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "1000000",
+          "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+          "API_TIMEOUT_MS": "3000000"
+        }
+      },
+      "deepseek": { "desc": "DeepSeek", "baseUrl": "https://api.deepseek.com/anthropic" },
+      "kimi": { "desc": "Kimi/Moonshot", "baseUrl": "https://api.moonshot.cn/anthropic" },
+      "custom": { "desc": "自定义中转站（Anthropic 兼容端点）" }
+    }
+  },
+  "gemini": {
+    "name": "Gemini CLI",
+    "cmd": "gemini",
+    "adapter": "env",
+    "keyEnv": "GEMINI_API_KEY",
+    "baseUrlEnv": "GOOGLE_GEMINI_BASE_URL",
+    "modelEnv": "GEMINI_MODEL",
+    "baseEnvKeys": [
+      "GEMINI_API_KEY", "GOOGLE_GEMINI_BASE_URL", "GEMINI_MODEL",
+      "GOOGLE_API_KEY", "GOOGLE_GENAI_USE_GCA", "GOOGLE_GENAI_USE_VERTEXAI",
+      "GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION"
+    ],
+    "presets": {
+      "aistudio": { "desc": "官方 Gemini API（AI Studio Key，走官方端点）", "noBaseUrl": true },
+      "custom": { "desc": "自定义代理（GOOGLE_GEMINI_BASE_URL + Key）" }
+    }
+  },
+  "qwen": {
+    "name": "Qwen Code",
+    "cmd": "qwen",
+    "adapter": "env",
+    "keyEnv": "OPENAI_API_KEY",
+    "baseUrlEnv": "OPENAI_BASE_URL",
+    "modelEnv": "OPENAI_MODEL",
+    "baseEnvKeys": [
+      "OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL",
+      "DASHSCOPE_API_KEY", "BAILIAN_CODING_PLAN_API_KEY"
+    ],
+    "presets": {
+      "dashscope": {
+        "desc": "Qwen Coding Plan（百炼）",
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "model": "qwen3-coder-plus"
+      },
+      "custom": { "desc": "自定义 OpenAI 兼容端点" }
+    }
+  },
+  "codebuddy": {
+    "name": "CodeBuddy Code",
+    "cmd": "codebuddy",
+    "adapter": "env",
+    "keyEnv": "CODEBUDDY_API_KEY",
+    "baseUrlEnv": "CODEBUDDY_BASE_URL",
+    "modelEnv": "CODEBUDDY_MODEL",
+    "baseEnvKeys": [
+      "CODEBUDDY_API_KEY", "CODEBUDDY_AUTH_TOKEN", "CODEBUDDY_BASE_URL",
+      "CODEBUDDY_MODEL", "CODEBUDDY_SMALL_FAST_MODEL", "CODEBUDDY_BIG_SLOW_MODEL",
+      "CODEBUDDY_INTERNET_ENVIRONMENT", "CODEBUDDY_CUSTOM_HEADERS"
+    ],
+    "presets": {
+      "official": { "desc": "CodeBuddy 官方平台 Key（走官方端点，仅需填 Key）", "noBaseUrl": true },
+      "custom": { "desc": "自定义中转站（实验性：CODEBUDDY_BASE_URL 覆盖，见实测项 #5）" }
+    }
+  },
+  "iflow": {
+    "name": "iFlow CLI",
+    "cmd": "iflow",
+    "adapter": "env",
+    "keyEnv": "IFLOW_API_KEY",
+    "baseUrlEnv": "IFLOW_BASE_URL",
+    "modelEnv": "IFLOW_MODEL",
+    "baseEnvKeys": [
+      "IFLOW_API_KEY", "IFLOW_BASE_URL", "IFLOW_MODEL",
+      "IFLOW_apiKey", "IFLOW_baseUrl", "IFLOW_model"
+    ],
+    "presets": {
+      "custom": { "desc": "自定义 OpenAI 兼容端点" }
+    }
+  },
+  "kimicode": {
+    "name": "Kimi Code CLI",
+    "cmd": "kimi",
+    "adapter": "env",
+    "keyEnv": "KIMI_MODEL_API_KEY",
+    "baseUrlEnv": "KIMI_MODEL_BASE_URL",
+    "modelEnv": "KIMI_MODEL_NAME",
+    "baseEnvKeys": [
+      "KIMI_MODEL_NAME", "KIMI_MODEL_API_KEY", "KIMI_MODEL_BASE_URL", "KIMI_MODEL_PROVIDER_TYPE",
+      "KIMI_MODEL_MAX_CONTEXT_SIZE", "KIMI_MODEL_CAPABILITIES", "KIMI_MODEL_DISPLAY_NAME",
+      "KIMI_MODEL_MAX_OUTPUT_SIZE", "KIMI_MODEL_REASONING_KEY", "KIMI_MODEL_THINKING_EFFORT",
+      "KIMI_MODEL_ADAPTIVE_THINKING"
+    ],
+    "presets": {
+      "moonshot": {
+        "desc": "Kimi 官方（Moonshot 账号 Key，走官方端点）",
+        "noBaseUrl": true,
+        "model": "kimi-for-coding",
+        "env": { "KIMI_MODEL_PROVIDER_TYPE": "kimi" }
+      },
+      "custom-openai": {
+        "desc": "自定义 OpenAI 兼容端点",
+        "env": { "KIMI_MODEL_PROVIDER_TYPE": "openai" }
+      },
+      "custom-anthropic": {
+        "desc": "自定义 Anthropic 兼容端点",
+        "env": { "KIMI_MODEL_PROVIDER_TYPE": "anthropic" }
+      }
+    }
+  },
+  "codex": {
+    "name": "Codex CLI",
+    "cmd": "codex",
+    "adapter": "hybrid",
+    "configFile": "~/.codex/config.toml",
+    "configFormat": "toml",
+    "keyEnvPrefix": "ACS_CODEX",
+    "launchStyle": "profile",
+    "wireApiDefault": "responses",
+    "probePath": "/responses",
+    "presets": {
+      "deepseek": { "desc": "DeepSeek（OpenAI 兼容）", "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-chat", "protocol": "openai" },
+      "zhipu": { "desc": "智谱GLM", "warn": "需端点支持 Responses API；智谱官方 /v4 暂不支持（实测 404），选择后将自动启用本地翻译代理", "baseUrl": "https://open.bigmodel.cn/api/paas/v4", "model": "glm-5.3", "protocol": "openai" },
+      "kimi": { "desc": "Kimi/Moonshot（OpenAI 兼容）", "baseUrl": "https://api.moonshot.cn/v1", "model": "kimi-k2-turbo-preview", "protocol": "openai" },
+      "custom": { "desc": "自定义中转站（需支持 wire_api=responses，见实测项 #8）" }
+    }
+  },
+  "opencode": {
+    "name": "OpenCode",
+    "cmd": "opencode",
+    "adapter": "hybrid",
+    "configFile": "~/.config/opencode/opencode.json",
+    "configFormat": "json",
+    "keyEnvPrefix": "ACS_OPENCODE",
+    "launchStyle": "modelArg",
+    "multiModel": true,
+    "presets": {
+      "deepseek": { "desc": "DeepSeek（OpenAI 兼容）", "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-chat", "protocol": "openai" },
+      "custom": { "desc": "自定义 OpenAI 兼容端点" }
+    }
+  },
+  "crush": {
+    "name": "Crush",
+    "cmd": "crush",
+    "adapter": "hybrid",
+    "configFile": "~/.config/crush/crush.json",
+    "configFormat": "json",
+    "keyEnvPrefix": "ACS_CRUSH",
+    "launchStyle": "envOnly",
+    "multiModel": true,
+    "presets": {
+      "deepseek": { "desc": "DeepSeek（OpenAI 兼容，base_url/api_key 走 $VAR 展开）", "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-chat", "protocol": "openai" },
+      "custom": { "desc": "自定义 OpenAI 兼容端点" }
+    }
+  }
+}
