@@ -9,18 +9,31 @@ function Write-Step { param([string]$Msg) Write-Host ('  ▶ ' + $Msg) -Foregrou
 function Write-Ok   { param([string]$Msg) Write-Host ('  ✔ ' + $Msg) -ForegroundColor Green }
 
 # 从配置文件中移除 marker 标记块（整块删除，其余内容原样保留）
+# 按文件 BOM 探测编码: UTF-16 用原编码往返；其余走 Latin-1（28591）字节透明读写——
+# 1 字节 = 1 字符，删块后字节级还原，修复 PS5.1 默认 ANSI 强解 UTF-8 中文致永久乱码、
+# 以及一律按 UTF-8 重写破坏 UTF-16 / GBK 文件的问题
 function Remove-AcsMount {
     param([string]$Path, [string]$Marker)
     if (-not (Test-Path $Path)) { return }
-    $raw = Get-Content $Path -Raw -ErrorAction SilentlyContinue
+    $enc = $null
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { $enc = [Text.Encoding]::Unicode }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { $enc = [Text.Encoding]::BigEndianUnicode }
+    if ($enc) { $raw = $enc.GetString($bytes) } else { $raw = [Text.Encoding]::GetEncoding(28591).GetString($bytes) }
     if (-not $raw -or -not ($raw -match [regex]::Escape($Marker))) { return }
     $pattern = '(?s)\r?\n?# >>> acs \(AgentCliSwitch\) >>>.*?# <<< acs <<<\r?\n?'
-    $new = [regex]::Replace($raw, $pattern, "`n")
-    $isBash = ($Path -like '*.bashrc') -or ($Path -like '*.bash_profile')
-    if ($isBash) {
-        [IO.File]::WriteAllText($Path, $new, (New-Object System.Text.UTF8Encoding($false)))
+    # 整块连同其前导换行一并移除（替换为空），其余字节原样保留，不改变文件的换行风格
+    $new = [regex]::Replace($raw, $pattern, '')
+    # 若仅剩孤立 UTF-8 BOM（Latin-1 视角的三字符，原文件只含挂载块）或纯空白 → 回归空文件
+    $trimmed = $new.TrimEnd("`r", "`n")
+    if ($trimmed -eq '' -or $trimmed -eq ([string][char]0xEF + [string][char]0xBB + [string][char]0xBF)) { $new = '' }
+    if ($enc) {
+        # 以无 BOM 前导的编码器写回（$raw 已含原文件 BOM 字符，默认编码器会再注入 preamble 形成双 BOM）
+        $encNoBom = if ($bytes[0] -eq 0xFF) { New-Object System.Text.UnicodeEncoding($false, $false) } else { New-Object System.Text.UnicodeEncoding($true, $false) }
+        [IO.File]::WriteAllText($Path, $new, $encNoBom)
     } else {
-        [IO.File]::WriteAllText($Path, $new, (New-Object System.Text.UTF8Encoding($true)))
+        # 无 BOM: Latin-1 原样写回（内容未被重解码，写 UTF-8 反而会在非 ASCII 字节处膨胀损坏）
+        [IO.File]::WriteAllText($Path, $new, [Text.Encoding]::GetEncoding(28591))
     }
     Write-Ok ('已移除挂载: {0}' -f $Path)
 }

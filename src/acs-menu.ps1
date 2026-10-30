@@ -4,7 +4,7 @@
 #  原理: 进程级环境变量注入 + try/finally 退出还原（继承 ccs 生产验证方案）
 # ============================================================================
 
-$script:AcsVersion  = 'v0.4.1'
+$script:AcsVersion  = 'v0.4.2'
 $script:AcsDir      = Join-Path $HOME '.acs'
 $script:AcsClisFile = Join-Path $script:AcsDir 'clis.json'
 $script:AcsDataFile = Join-Path $script:AcsDir 'suppliers.json'
@@ -266,6 +266,13 @@ function Get-AcsDisplayWidth {
     return $w
 }
 
+# 按 CJK 显示宽度补格：返回补齐到 $Width 列所需的空格串（宽度已超时返回空，负差防护）；
+# String.PadRight 按字符数填充，中文 key 会造成 Desc 列错位
+function Get-AcsPadText {
+    param([string]$Text, [int]$Width)
+    return $Text + (' ' * [Math]::Max(0, $Width - (Get-AcsDisplayWidth -Text $Text)))
+}
+
 # 按显示宽度截断文本，超出部分以 … 结尾（$MaxWidth 为可用显示列数）
 function Get-AcsFitText {
     param([string]$Text, [int]$MaxWidth)
@@ -315,8 +322,9 @@ function Read-AcsValidated {
 # 按 key 最大长度自适应列宽（10～14）
 function Get-AcsKeyWidth {
     param($Order)
+    # 按 CJK 显示宽度取最大 key 列宽（与 Write-AcsRow 的显示宽填充同口径；字符数口径下中文 key 会错位）
     $w = 10
-    foreach ($k in $Order) { $l = [Math]::Min(14, $k.Length + 1); if ($l -gt $w) { $w = $l } }
+    foreach ($k in $Order) { $l = [Math]::Min(14, (Get-AcsDisplayWidth -Text $k) + 1); if ($l -gt $w) { $w = $l } }
     return $w
 }
 
@@ -326,14 +334,16 @@ function Write-AcsRow {
     param($Index, $IndexWidth, $Key, $Desc, [switch]$IsLast, [int]$KeyWidth = 10, [string]$Note = '', [switch]$Highlight)
     $ptr = ' '
     if ($Highlight) { $ptr = '▸' }
+    # key 列按 CJK 显示宽度填充（PadRight 按字符数，中文 key 会造成 Desc 列错位）
+    $keyPad = $Key + (' ' * [Math]::Max(0, $KeyWidth - (Get-AcsDisplayWidth -Text $Key)))
     # 注意：-f 优先级高于 +，须先拼好格式串再做格式化
     $fmt = ' {0} [{1,' + $IndexWidth + '}]  '
     Write-Host ($fmt -f $ptr, $Index) -ForegroundColor Yellow -NoNewline
     if ($Highlight) {
-        Write-Host ($Key.PadRight($KeyWidth) + '  ') -ForegroundColor Cyan -NoNewline
+        Write-Host ($keyPad + '  ') -ForegroundColor Cyan -NoNewline
         Write-Host $Desc -ForegroundColor Cyan -NoNewline
     } else {
-        Write-Host ($Key.PadRight($KeyWidth) + '  ') -ForegroundColor DarkGray -NoNewline
+        Write-Host ($keyPad + '  ') -ForegroundColor DarkGray -NoNewline
         Write-Host $Desc -NoNewline
     }
     if ($Note) { Write-Host ('  ' + $Note) -ForegroundColor DarkGray -NoNewline }
@@ -372,6 +382,8 @@ function Invoke-AcsSelect {
         [int]$KeyWidth = 10,
         [string]$LastMark = '',
         [string]$HintInput = '',
+        # 序号显示基数：普通列表必须显式传 1（acs 惯例序号从 1 起）；
+        # 不传默认 0 仅供供应商菜单使用（[0] 固定官方通道）。漏传会导致"显示序号"与"输入解析"错位一格
         [int]$IndexBase = 0
     )
     $rows = @($Rows)
@@ -894,7 +906,7 @@ function Add-AcsSupplier {
             $rows += @{ Key = $a; Desc = [string]$clis[$a].name; Note = $note; Last = $false }
         }
         $keyW = 10
-        foreach ($a in $ids) { $l = [Math]::Min(14, $a.Length + 1); if ($l -gt $keyW) { $keyW = $l } }
+        foreach ($a in $ids) { $l = [Math]::Min(14, (Get-AcsDisplayWidth -Text $a) + 1); if ($l -gt $keyW) { $keyW = $l } }
         $parse = {
             param($text)
             if ($text) {
@@ -932,7 +944,7 @@ function Add-AcsSupplier {
         $rows += @{ Key = $presetIds[$i]; Desc = [string]$presetDescs[$i]; Note = ([string]$presetObj.warn); Last = $false }
     }
     $keyW = 10
-    foreach ($p2 in $presetIds) { $l = [Math]::Min(14, $p2.Length + 1); if ($l -gt $keyW) { $keyW = $l } }
+    foreach ($p2 in $presetIds) { $l = [Math]::Min(14, (Get-AcsDisplayWidth -Text $p2) + 1); if ($l -gt $keyW) { $keyW = $l } }
     $parse = {
         param($text)
         if ($text) {
@@ -1262,7 +1274,7 @@ function Remove-AcsSupplier {
     }
     # 若上次使用指向被删条目，清空记录
     if (Test-Path $script:AcsLastFile) {
-        $raw = Get-Content $script:AcsLastFile -Raw -ErrorAction SilentlyContinue
+        $raw = Get-Content $script:AcsLastFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
         if ($raw -and $raw.Trim().StartsWith($foundCli + "`t" + $foundProv.Name + "`t")) { Remove-Item $script:AcsLastFile -Force -ErrorAction SilentlyContinue }
     }
     $clis = Get-AcsClis -Quiet
@@ -1423,7 +1435,7 @@ function Remove-AcsInteractive {
     }
     # 上次使用指向被删条目时清空记录；hybrid CLI 联动预置器
     if (Test-Path $script:AcsLastFile) {
-        $raw = Get-Content $script:AcsLastFile -Raw -ErrorAction SilentlyContinue
+        $raw = Get-Content $script:AcsLastFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
         if ($raw -and $raw.Trim().StartsWith($CliId + "`t" + $real + "`t")) { Remove-Item $script:AcsLastFile -Force -ErrorAction SilentlyContinue }
     }
     $clis = Get-AcsClis -Quiet
@@ -1575,7 +1587,7 @@ function Show-AcsStatus {
     # 上次使用（.last 格式: cli<TAB>provider<TAB>时间）
     $lastCli = ''; $lastProv = ''; $lastTime = ''
     if (Test-Path $script:AcsLastFile) {
-        $raw = Get-Content $script:AcsLastFile -Raw -ErrorAction SilentlyContinue
+        $raw = Get-Content $script:AcsLastFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
         if ($raw) {
             $parts = $raw.Trim() -split "`t"
             if ($parts.Count -ge 2) { $lastCli = $parts[0]; $lastProv = $parts[1] }
@@ -1607,7 +1619,7 @@ function Show-AcsStatus {
         if ($map[$c]) { $l = Get-AcsSupplierList -CliId $c -Map $map; if ($l) { $count = $l.Count } }
         if (-not (Get-Command $clis[$c].cmd -ErrorAction SilentlyContinue)) { $notInstalled += $c; continue }
         $cfg = '未配置'; if ($count -gt 0) { $cfg = ('{0} 个供应商' -f $count) }
-        Write-Host ('    {0}' -f $c.PadRight(11)) -NoNewline
+        Write-Host ('    {0}' -f (Get-AcsPadText -Text $c -Width 11)) -NoNewline
         Write-Host ('{1} · {0}' -f $cfg, $clis[$c].name) -ForegroundColor DarkGray -NoNewline
         # hybrid 条目预置状态并入概览行（未安装的 hybrid 不占行：未装则预置无意义）
         if ($clis[$c].adapter -eq 'hybrid' -and $count -gt 0) {
@@ -1652,10 +1664,10 @@ function Show-AcsStatus {
         Write-Host ('    {0}' -f $g) -NoNewline
         Write-Host (' {0}' -f $clis[$g].name) -ForegroundColor DarkGray
         $keyW = 8
-        foreach ($k in $list.Keys) { $l = [Math]::Min(14, $k.Length + 1); if ($l -gt $keyW) { $keyW = $l } }
+        foreach ($k in $list.Keys) { $l = [Math]::Min(14, (Get-AcsDisplayWidth -Text $k) + 1); if ($l -gt $keyW) { $keyW = $l } }
         foreach ($k in $list.Keys) {
             if ($list[$k].Env.Count -eq 0) {
-                Write-Host ('      {0}  OAuth 官方入口' -f $k.PadRight($keyW))
+                Write-Host ('      {0}  OAuth 官方入口' -f (Get-AcsPadText -Text $k -Width $keyW))
                 continue
             }
             if ($isHybrid) {
@@ -1674,7 +1686,7 @@ function Show-AcsStatus {
             }
             $host2 = ''
             if ($url) { try { $host2 = ([uri]$url).Host } catch { $host2 = $url } }
-            Write-Host ('      {0}  {1}  → {2}' -f $k.PadRight($keyW), $fp, $host2)
+            Write-Host ('      {0}  {1}  → {2}' -f (Get-AcsPadText -Text $k -Width $keyW), $fp, $host2)
         }
     }
     if ($onlyOfficial.Count -gt 0) {
@@ -1710,24 +1722,37 @@ function Show-AcsStatus {
 # 卸载
 # ----------------------------------------------------------------------------
 
-# 从单个配置文件移除 acs 挂载块（与 uninstall.ps1 相同的 marker 正则）
+# 从单个配置文件移除 acs 挂载块（与 uninstall.ps1 相同的 marker 正则与编码策略）
+# 按 BOM 探测编码: UTF-16 原编码往返；其余 Latin-1 字节透明读写，
+# 避免无 BOM 中文 profile 被 PS5.1 按 ANSI 误解后写回即永久乱码
 function Remove-AcsUninstallMount {
     param([string]$Path)
     if (-not (Test-Path $Path)) { return }
-    $raw = Get-Content $Path -Raw -ErrorAction SilentlyContinue
+    $enc = $null
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { $enc = [Text.Encoding]::Unicode }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { $enc = [Text.Encoding]::BigEndianUnicode }
+    if ($enc) { $raw = $enc.GetString($bytes) } else { $raw = [Text.Encoding]::GetEncoding(28591).GetString($bytes) }
     if (-not $raw -or -not ($raw -match [regex]::Escape('# >>> acs (AgentCliSwitch) >>>'))) { return }
     $pattern = '(?s)\r?\n?# >>> acs \(AgentCliSwitch\) >>>.*?# <<< acs <<<\r?\n?'
-    $new = [regex]::Replace($raw, $pattern, "`n")
-    $isBash = ($Path -like '*.bashrc') -or ($Path -like '*.bash_profile')
-    if ($isBash) {
-        [IO.File]::WriteAllText($Path, $new, (New-Object System.Text.UTF8Encoding($false)))
+    # 整块连同其前导换行一并移除（替换为空），其余字节原样保留，不改变文件的换行风格
+    $new = [regex]::Replace($raw, $pattern, '')
+    # 若仅剩孤立 UTF-8 BOM（Latin-1 视角的三字符，原文件只含挂载块）或纯空白 → 回归空文件
+    $trimmed = $new.TrimEnd("`r", "`n")
+    if ($trimmed -eq '' -or $trimmed -eq ([string][char]0xEF + [string][char]0xBB + [string][char]0xBF)) { $new = '' }
+    if ($enc) {
+        # 以无 BOM 前导的编码器写回（$raw 已含原文件 BOM 字符，默认编码器会再注入 preamble 形成双 BOM）
+        $encNoBom = if ($bytes[0] -eq 0xFF) { New-Object System.Text.UnicodeEncoding($false, $false) } else { New-Object System.Text.UnicodeEncoding($true, $false) }
+        [IO.File]::WriteAllText($Path, $new, $encNoBom)
     } else {
-        [IO.File]::WriteAllText($Path, $new, (New-Object System.Text.UTF8Encoding($true)))
+        [IO.File]::WriteAllText($Path, $new, [Text.Encoding]::GetEncoding(28591))
     }
     Write-Host ('  ✔ 已移除挂载: {0}' -f $Path) -ForegroundColor Green
 }
 
-# acs uninstall：完全卸载（移除三端挂载 + ~/.acs 全部数据，回归安装前状态；需确认）
+# acs uninstall：完全卸载（移除三端挂载 + ~/.acs 全部数据，回归安装前状态）
+# 单步三选菜单（复用 Invoke-AcsSelect）：默认高亮"备份后卸载"，回车即最安全结果；
+# 备份失败即中止卸载，绝不出现"备份没成但数据删了"
 function Invoke-AcsUninstall {
     # 统计供应商数量供警示（数据可能不存在，容忍缺失）
     $count = 0
@@ -1744,11 +1769,55 @@ function Invoke-AcsUninstall {
     Write-Host '  将移除：'
     Write-Host '    · 三端挂载（PS7 / PS5.1 / Git Bash Profile 中的 acs 挂载块）'
     Write-Host ('    · 程序文件与全部数据 {0}' -f $script:AcsDir)
-    Write-Host ('    · suppliers.json 的全部数据（当前 {0} 个供应商，含明文 API Key，删除后不可恢复）' -f $count) -ForegroundColor Yellow
-    Write-Host '  如需保留供应商配置，请先自行备份该文件后再卸载'
+    if ($count -gt 0) {
+        Write-Host ('    · suppliers.json 的全部数据（当前 {0} 个供应商，含明文 API Key）' -f $count) -ForegroundColor Yellow
+    } else {
+        Write-Host '    · suppliers.json（当前无供应商数据）' -ForegroundColor Yellow
+    }
     Write-Host ''
-    $r = Read-Host '  确认完全卸载? (y/N) ▸'
-    if ($r -notmatch '^[yY]$') { Write-Host '  已取消。' -ForegroundColor DarkGray; return }
+    # 单步三选：Key 即选项词（中文，与全中文交互语言一致；别名 backup/keep/cancel 仍可输入）；
+    # Desc 统一留空、说明全放 Note——避免全角括号等字形偏移破坏视觉对齐
+    $rows = @(
+        @{ Key = '备份后卸载'; Desc = ''; Note = '推荐 · 供应商配置保存到用户目录后移除'; Last = $false }
+        @{ Key = '直接卸载';   Desc = ''; Note = 'API Key 与全部数据永久删除，不可恢复'; Last = $false }
+        @{ Key = '取消';       Desc = ''; Note = '什么都不做'; Last = $false }
+    )
+    $picked = Invoke-AcsSelect -Prompt '请选择数据处置方式' `
+        -Hint '↑↓ 选择 · 回车确认 · Esc 取消' `
+        -Rows $rows -Initial 0 -KeyWidth 12 -IndexBase 1 `
+        -HintInput '回车=备份后卸载（推荐）；输入 1-3 或 备份/直接/取消' `
+        -Parse {
+            param($Text)
+            $t = ('' + $Text).Trim().ToLower()
+            if ($t -eq '') { return @{ ok = $true; value = '备份后卸载' } }   # 回车 = 默认（与方向键模式行为一致）
+            if ($t -match '^(1|b|backup|备份(后卸载)?)$')    { return @{ ok = $true; value = '备份后卸载' } }
+            if ($t -match '^(2|d|keep|直接(卸载)?)$')        { return @{ ok = $true; value = '直接卸载' } }
+            if ($t -match '^(3|c|cancel|q|取消)$')           { return @{ ok = $true; value = '取消' } }
+            return @{ ok = $false; msg = '请输入 1-3（或 备份 / 直接 / 取消）' }
+        }
+    if ($picked -ne '备份后卸载' -and $picked -ne '直接卸载') {
+        Write-Host '  已取消。' -ForegroundColor DarkGray
+        return
+    }
+
+    # 备份：suppliers.json 原样字节副本 → 用户目录（秒级时间戳防多次卸载互相覆盖）；失败即中止
+    if ($picked -eq '备份后卸载') {
+        if (-not (Test-Path $script:AcsDataFile)) {
+            Write-Host ('  ⚠ 未找到供应商配置 {0}，跳过备份' -f $script:AcsDataFile) -ForegroundColor Yellow
+        } else {
+            $backupPath = Join-Path $HOME ('acs-suppliers-backup-{0}.json' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+            try {
+                Copy-Item $script:AcsDataFile $backupPath -ErrorAction Stop
+                Write-Host ''
+                Write-Host ('  ✔ 已备份供应商配置: {0}' -f (Resolve-Path $backupPath).Path) -ForegroundColor Green
+                Write-Host '    （含明文 API Key，请妥善保管；重装后复制回 ~\.acs\suppliers.json 即可恢复）' -ForegroundColor DarkGray
+            } catch {
+                Write-Host ('  ✘ 备份失败: {0}' -f $_.Exception.Message) -ForegroundColor Red
+                Write-Host '  已中止卸载（数据未删除）。可重试，或先手动备份后再运行。' -ForegroundColor Yellow
+                return
+            }
+        }
+    }
 
     # 1. 移除三端挂载块（Documents 可能被 OneDrive 重定向）
     $doc = [Environment]::GetFolderPath('MyDocuments')
@@ -1856,7 +1925,7 @@ function Invoke-Acs {
     # 上次使用记录（cli<TAB>provider<TAB>时间）
     $lastCli = ''; $lastProv = ''
     if (Test-Path $script:AcsLastFile) {
-        $raw = Get-Content $script:AcsLastFile -Raw -ErrorAction SilentlyContinue
+        $raw = Get-Content $script:AcsLastFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
         if ($raw) {
             $parts = $raw.Trim() -split "`t"
             if ($parts.Count -ge 2) { $lastCli = $parts[0]; $lastProv = $parts[1] }
@@ -2059,7 +2128,8 @@ function Invoke-Acs {
         return
     }
     # 记录上次使用并拉起会话
-    try { Set-Content -Path $script:AcsLastFile -Value ($cliId + "`t" + $sel + "`t" + (Get-Date -Format 'yyyy-MM-dd HH:mm')) -Encoding ASCII -ErrorAction Stop } catch { }
+    # 记录上次使用: UTF-8 无 BOM + LF 写入（与 Git Bash 端字节格式一致；ASCII 会把中文供应商名写成 ?，CRLF 会混入 bash 端解析）
+    try { [IO.File]::WriteAllText($script:AcsLastFile, ($cliId + "`t" + $sel + "`t" + (Get-Date -Format 'yyyy-MM-dd HH:mm') + "`n"), (New-Object System.Text.UTF8Encoding($false))) } catch { }
     Start-AcsSession -CliId $cliId -CliDef $cliDef -Sel $sel -Entry $list[$sel] -Rest ([string[]]$rest)
 }
 

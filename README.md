@@ -6,7 +6,7 @@
 主流终端 Agent 工具之间，统一管理 API 供应商（官方 / 智谱 GLM / DeepSeek / Kimi / 各类中转站），
 一条命令切换，退出自动还原，多窗口并行互不踩踏。
 
-> **状态：v0.4.0**（Windows 三端可用：PowerShell 7 / PowerShell 5.1 / Git Bash）
+> **状态：v0.4.2**（Windows 三端可用：PowerShell 7 / PowerShell 5.1 / Git Bash）
 > 设计前身：[ClaudeCliSupplierSwitch](https://github.com/ldtmore/ClaudeCliSupplierSwitch)
 > （ccs，仅支持 Claude Code 的单 CLI 版本），acs 是它的多 CLI 泛化重写。
 
@@ -15,8 +15,24 @@
 **远程一键安装**（PowerShell 中执行；Git Bash / cmd 里可先输 `powershell` 进入）：
 
 ```powershell
-irm https://raw.githubusercontent.com/ldtmore/AgentCliSwitch/main/install.ps1 | iex
+# 默认源：jsDelivr CDN（大陆可直连）
+irm https://cdn.jsdelivr.net/gh/ldtmore/AgentCliSwitch@main/install-remote.ps1 | iex
+
+# 备用源：能直连 GitHub raw 时可用
+irm https://raw.githubusercontent.com/ldtmore/AgentCliSwitch/main/install-remote.ps1 | iex
 ```
+
+**一键卸载**（需要时；单步三选：**备份后卸载**（默认，自动把供应商配置备份到用户目录）/ 直接卸载 / 取消）：
+
+```powershell
+# 默认源：jsDelivr CDN（大陆可直连）
+irm https://cdn.jsdelivr.net/gh/ldtmore/AgentCliSwitch@main/uninstall-remote.ps1 | iex
+
+# 备用源：能直连 GitHub raw 时可用
+irm https://raw.githubusercontent.com/ldtmore/AgentCliSwitch/main/uninstall-remote.ps1 | iex
+```
+
+安装与卸载的完整语义（本地方式、数据保留差异、备份恢复方法）见下文[卸载](#卸载)节。
 
 **或本地安装**（克隆 / 下载本仓库后，在仓库目录内执行）：
 
@@ -65,7 +81,7 @@ acs claude glmb    # 直达启动（供应商名支持唯一前缀）
 | `acs preset [cli]` | 重新生成 hybrid CLI 的配置预置段 |
 | `acs list [cli]` | 列出供应商配置（脱敏） |
 | `acs status` | 三端挂载体检 + 各 CLI 状态总览 |
-| `acs uninstall` | 完全卸载：移除三端挂载与全部数据（含 API Key，需确认；详见[卸载](#卸载)） |
+| `acs uninstall` | 完全卸载：单步三选（**备份后卸载**·默认 / 直接卸载 / 取消），备份存至用户目录；详见[卸载](#卸载) |
 | `acs help` / `acs version` | 命令一览 / 版本号 |
 
 ## 供应商模型组（v0.4）
@@ -111,17 +127,22 @@ L2 说明：预置只写 base_url 与密钥变量指针（不含密钥），密�
 | `src/acs-proxy.mjs` | Codex 本地协议翻译代理（Responses → Chat Completions，随会话启动/自动退出） |
 | `config/clis.json` | CLI 知识库（随 acs 分发，用户一般不改） |
 | `config/suppliers.template.json` | 用户数据模板（首次安装生成 suppliers.json） |
-| `install.ps1` / `uninstall.ps1` | 幂等安装 / 卸载（卸载默认保留用户数据） |
+| `install.ps1` / `uninstall.ps1` | 本地幂等安装 / 卸载（卸载默认保留用户数据） |
+| `install-remote.ps1` / `uninstall-remote.ps1` | 远程引导脚本（无 BOM，仅限 `irm \| iex`；jsDelivr 优先 + raw 回退） |
 
 ## 安全
 
 - `suppliers.json` 内是明文 API Key：文档警示不提交 git、不外发截图；`.gitignore` 防御性排除
 - `acs list` / `acs status` 默认脱敏（只显示 Key 指纹）
+- 远程引导只用 jsDelivr（仓库内容的官方 CDN）与 GitHub raw 双源，不引入任何第三方下载代理，杜绝脚本内容被中间篡改
 - L2 预置块不含密钥，配置文件可以正常纳入用户自己的同步/备份
 
 ## 卸载
 
-终端内执行（移除三端挂载与 `~\.acs\` 全部数据，**含 API Key、不可恢复**，需 y/N 确认）：
+终端内执行（单步三选菜单：**备份后卸载**（默认，推荐）/ 直接卸载 / 取消，Esc 随时取消）。
+选择备份时 `suppliers.json` 以原样副本保存到用户目录
+（如 `C:\Users\<user>\acs-suppliers-backup-20261030-1830.json`，含明文 API Key 请妥善保管），
+重装后复制回 `~\.acs\suppliers.json` 即可恢复：
 
 ```powershell
 acs uninstall
@@ -133,11 +154,20 @@ acs uninstall
 # 本地仓库
 ./uninstall.ps1
 
-# 远程
-irm https://raw.githubusercontent.com/ldtmore/AgentCliSwitch/main/uninstall.ps1 | iex
+# 远程（jsDelivr 默认；默认保留 suppliers.json 数据，-Purge 完全清除请克隆后本地执行）
+irm https://cdn.jsdelivr.net/gh/ldtmore/AgentCliSwitch@main/uninstall-remote.ps1 | iex
+irm https://raw.githubusercontent.com/ldtmore/AgentCliSwitch/main/uninstall-remote.ps1 | iex
 ```
 
 卸载后当前已开终端里的 `acs` 命令仍可用至窗口关闭，新开终端即完全还原。
+
+## 维护者备注：发布流程
+
+1. 更新双端菜单脚本的版本常量与 README / CHANGELOG 版本说明
+2. `git push`（直连失败可走代理）
+3. 逐文件访问 purge 链接强制刷新 jsDelivr 缓存（否则用户侧最多延迟 12~24h）：
+   `https://purge.jsdelivr.net/gh/ldtmore/AgentCliSwitch@main/<文件名>`
+4. 确认 GitHub Actions `check-encoding` 绿灯
 
 ## License
 

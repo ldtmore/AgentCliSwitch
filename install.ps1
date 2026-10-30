@@ -2,28 +2,19 @@
 #  install.ps1 - acs 本地一键部署（幂等，重复运行安全）
 #  动作: 复制脚本与配置到 ~\.acs → 首次生成 suppliers.json → 挂载三端
 #  挂载: PS7 profile / PS5.1 profile / Git Bash .bashrc（marker 标记块）
+#  执行契约: 本文件必须带 BOM（PS5.1 本地 -File 无 BOM 会按 ANSI 误读中文），
+#            因此仅支持本地执行；远程安装走无 BOM 的引导脚本:
+#            irm https://cdn.jsdelivr.net/gh/ldtmore/AgentCliSwitch@main/install-remote.ps1 | iex
+#            （引导下载全部资产落地后，以 -File 方式调用本文件，挂载逻辑单一来源）
 # ============================================================================
 
 $ErrorActionPreference = 'Stop'
 
-# ============================================================================
-# 远程一键安装支持: irm https://raw.githubusercontent.com/ldtmore/AgentCliSwitch/main/install.ps1 | iex
-# 管道执行时拿不到脚本路径（$PSScriptRoot 为空）→ 先下载仓库归档到临时目录再安装
-# ============================================================================
-$tmp = $null
+# 误用兜底: irm 本文件 | iex 时 $PSScriptRoot 为空（且 BOM 会先污染首行报错）——给正确指引而非裸报错
 if (-not $PSScriptRoot) {
-    try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
-    $ProgressPreference = 'SilentlyContinue'
-    $repo = 'https://github.com/ldtmore/AgentCliSwitch/archive/refs/heads/main.zip'
-    $tmp  = Join-Path ([IO.Path]::GetTempPath()) ('acs-install-' + [guid]::NewGuid().ToString('N'))
-    Write-Host '  ▶ 远程安装：正在下载仓库归档...'
-    Invoke-WebRequest -Uri $repo -OutFile ($tmp + '.zip') -UseBasicParsing
-    Expand-Archive -Path ($tmp + '.zip') -DestinationPath $tmp -Force
-    $repoRoot = Join-Path $tmp 'AgentCliSwitch-main'
-    if (-not (Test-Path (Join-Path $repoRoot 'install.ps1'))) { throw '仓库归档解压失败（未找到 install.ps1）' }
-} else {
-    $repoRoot = $PSScriptRoot
+    throw 'install.ps1 仅支持本地执行（在仓库目录内 ./install.ps1）；远程安装请执行: irm https://cdn.jsdelivr.net/gh/ldtmore/AgentCliSwitch@main/install-remote.ps1 | iex'
 }
+$repoRoot = $PSScriptRoot
 $acsDir = Join-Path $HOME '.acs'
 
 # 统一步骤输出（与 acs-menu 脚本一致的 ✔/⚠/▶ 图标体系）
@@ -74,8 +65,15 @@ function Add-AcsMount {
     param([string]$Path, [string]$Block, [string]$Marker, [switch]$IsBash)
     $dir = Split-Path -Parent $Path
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-    $existing = ''
-    if (Test-Path $Path) { $existing = Get-Content $Path -Raw -ErrorAction SilentlyContinue }
+    # 按目标文件 BOM 探测编码: UTF-16 用原编码往返；其余（UTF-8 带/无 BOM、ANSI、GBK）
+    # 走 Latin-1 字节透明读写——挂载块为纯 ASCII，追加不破坏任何既有编码，
+    # 修复 PS5.1 下 Get-Content 默认按 ANSI 误解 UTF-8 中文、写回即永久乱码的问题
+    $enc = $null
+    $bytes = @()
+    if (Test-Path $Path) { $bytes = [IO.File]::ReadAllBytes($Path) }
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { $enc = [Text.Encoding]::Unicode }
+    elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { $enc = [Text.Encoding]::BigEndianUnicode }
+    if ($enc) { $existing = $enc.GetString($bytes) } else { $existing = [Text.Encoding]::GetEncoding(28591).GetString($bytes) }
     if ($existing -and ($existing -match [regex]::Escape($Marker))) {
         Write-Ok ('已挂载（跳过）: {0}' -f $Path)
         return
@@ -84,12 +82,20 @@ function Add-AcsMount {
     if (-not $content) { $content = '' }
     if (-not $content.EndsWith("`n")) { $content += "`n" }
     $content += $Block
-    if ($IsBash) {
-        # 统一 LF 后以无 BOM UTF-8 写入
-        $content = $content -replace "`r`n", "`n"
-        [IO.File]::WriteAllText($Path, $content, (New-Object System.Text.UTF8Encoding($false)))
+    if ($enc) {
+        # UTF-16 文件: 以无 BOM 前导的编码器写回（$existing 已含原 BOM 字符，
+        # 用默认编码器 WriteAllText 会再注入一份 preamble 形成双 BOM）
+        $encNoBom = if ($bytes[0] -eq 0xFF) { New-Object System.Text.UnicodeEncoding($false, $false) } else { New-Object System.Text.UnicodeEncoding($true, $false) }
+        [IO.File]::WriteAllText($Path, $content, $encNoBom)
+    } elseif ($bytes.Count -eq 0) {
+        # 新建: PS Profile 用带 BOM 的 UTF-8（PS5.1 后续中文所需）；.bashrc 用无 BOM + 统一 LF
+        if ($IsBash) { $content = $content -replace "`r`n", "`n" }
+        [IO.File]::WriteAllText($Path, $content, (New-Object System.Text.UTF8Encoding(-not $IsBash)))
     } else {
-        [IO.File]::WriteAllText($Path, $content, (New-Object System.Text.UTF8Encoding($true)))
+        # 既有无 BOM: Latin-1 字节透明写回，绝不注入 BOM / 不重编码
+        # （.bashrc 场景仅将 CRLF 规范为 LF 满足 bash，其余字节原样保留）
+        if ($IsBash) { $content = $content -replace "`r`n", "`n" }
+        [IO.File]::WriteAllText($Path, $content, [Text.Encoding]::GetEncoding(28591))
     }
     Write-Ok ('已挂载: {0}' -f $Path)
 }
@@ -126,10 +132,6 @@ if (Test-Path (Join-Path $repoRoot 'src\acs-menu.sh')) {
 # ----------------------------------------------------------------------------
 # 4. 完成提示
 # ----------------------------------------------------------------------------
-if ($tmp) {
-    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item ($tmp + '.zip') -Force -ErrorAction SilentlyContinue
-}
 Write-Host ''
 Write-Ok '安装完成！接下来：'
 Write-Host ''

@@ -6,7 +6,7 @@
 #  原理: 进程级 export 注入 + unset 退出还原（继承 ccs 生产验证方案）
 # ============================================================================
 
-_ACS_VERSION="v0.4.1"
+_ACS_VERSION="v0.4.2"
 _ACS_DIR="$HOME/.acs"
 _ACS_CLIS="$_ACS_DIR/clis.json"
 _ACS_DATA="$_ACS_DIR/suppliers.json"
@@ -23,7 +23,7 @@ _acs_active_clis() {
     node -e '
       const fs = require("fs");
       let j;
-      try { j = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+      try { j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, "")); }
       catch (e) { console.error("  ✘ suppliers.json 解析失败: " + e.message); process.exit(1); }
       for (const k of Object.keys(j)) {
         if (k.startsWith("_")) continue;
@@ -38,7 +38,7 @@ _acs_entries() {
     node -e '
       const fs = require("fs");
       let j;
-      try { j = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+      try { j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, "")); }
       catch (e) { console.error("  ✘ suppliers.json 解析失败: " + e.message); process.exit(1); }
       const cli = process.argv[2];
       const g = j[cli];
@@ -62,7 +62,7 @@ _acs_env_names() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         const g = j[process.argv[2]] || {};
         const names = new Set();
         for (const k of Object.keys(g)) {
@@ -80,7 +80,7 @@ _acs_env_pairs() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         const g = j[process.argv[2]] || {};
         const want = String(process.argv[3]).toLowerCase();
         let e = {};
@@ -99,7 +99,7 @@ _acs_presets() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         const d = j[process.argv[2]];
         const ps = (d && d.presets) || {};
         for (const k of Object.keys(ps)) {
@@ -116,7 +116,7 @@ _acs_write_entry() {
       const fs = require("fs");
       const env = process.env;
       let j = {};
-      try { j = JSON.parse(fs.readFileSync(env.ACS_ADD_DATA, "utf8")); } catch (e) {}
+      try { j = JSON.parse(fs.readFileSync(env.ACS_ADD_DATA, "utf8").replace(/^\uFEFF/, "")); } catch (e) {}
       const cli = env.ACS_ADD_CLI, id = env.ACS_ADD_ID;
       j[cli] = j[cli] && typeof j[cli] === "object" ? j[cli] : {};
       j[cli][id] = JSON.parse(env.ACS_ADD_ENTRY);
@@ -133,8 +133,8 @@ _acs_write_entry() {
 _acs_preset_toml() {
     node -e '
       const fs = require("fs"), path = require("path"), os = require("os");
-      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-      const s = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
+      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
+      const s = JSON.parse(fs.readFileSync(process.argv[3], "utf8").replace(/^\uFEFF/, ""));
       const d = j[process.argv[2]];
       const g = s[process.argv[2]] || {};
       const codexDir = path.join(os.homedir(), ".codex");
@@ -185,13 +185,13 @@ _acs_preset_toml() {
 _acs_preset_opencode() {
     node -e '
       const fs = require("fs"), path = require("path"), os = require("os");
-      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-      const s = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
+      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
+      const s = JSON.parse(fs.readFileSync(process.argv[3], "utf8").replace(/^\uFEFF/, ""));
       const d = j[process.argv[2]];
       const g = s[process.argv[2]] || {};
       const cfgPath = String(d.configFile).replace(/^~\//, os.homedir() + "/");
       let obj = {};
-      try { obj = JSON.parse(fs.readFileSync(cfgPath, "utf8")); } catch (e) {}
+      try { obj = JSON.parse(fs.readFileSync(cfgPath, "utf8").replace(/^\uFEFF/, "")); } catch (e) {}
       if (typeof obj !== "object" || obj === null || Array.isArray(obj)) { console.error("  ✘ 配置文件不是 JSON 对象，拒绝写入: " + cfgPath); process.exit(1); }
       if (!obj.provider || typeof obj.provider !== "object") obj.provider = {};
       for (const k of Object.keys(obj.provider)) { if (k.startsWith("acs_")) delete obj.provider[k]; }
@@ -220,13 +220,13 @@ _acs_preset_opencode() {
 _acs_preset_crush() {
     node -e '
       const fs = require("fs"), path = require("path"), os = require("os");
-      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-      const s = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
+      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
+      const s = JSON.parse(fs.readFileSync(process.argv[3], "utf8").replace(/^\uFEFF/, ""));
       const d = j[process.argv[2]];
       const g = s[process.argv[2]] || {};
       const cfgPath = String(d.configFile).replace(/^~\//, os.homedir() + "/");
       let obj = {};
-      try { obj = JSON.parse(fs.readFileSync(cfgPath, "utf8")); } catch (e) {}
+      try { obj = JSON.parse(fs.readFileSync(cfgPath, "utf8").replace(/^\uFEFF/, "")); } catch (e) {}
       if (typeof obj !== "object" || obj === null || Array.isArray(obj)) { console.error("  ✘ 配置文件不是 JSON 对象，拒绝写入: " + cfgPath); process.exit(1); }
       if (!obj.providers || typeof obj.providers !== "object") obj.providers = {};
       for (const k of Object.keys(obj.providers)) { if (k.startsWith("acs_")) delete obj.providers[k]; }
@@ -275,12 +275,12 @@ _acs_preset() {
 _acs_crush_model() {
     node -e '
       const fs = require("fs"), os = require("os");
-      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
       const d = j.crush;
       if (!d) process.exit(0);
       const cfgPath = String(d.configFile).replace(/^~\//, os.homedir() + "/");
       let obj = {};
-      try { obj = JSON.parse(fs.readFileSync(cfgPath, "utf8")); } catch (e) { process.exit(0); }
+      try { obj = JSON.parse(fs.readFileSync(cfgPath, "utf8").replace(/^\uFEFF/, "")); } catch (e) { process.exit(0); }
       if (!obj.models) process.exit(0);
       const models = { large: { model: process.argv[2], provider: "acs_" + process.argv[3] } };
       if (process.argv[4]) models.small = { model: process.argv[4], provider: "acs_" + process.argv[3] };
@@ -294,7 +294,7 @@ _acs_preset_field() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         const g = j[process.argv[2]] || {};
         const want = String(process.argv[3]).toLowerCase();
         for (const k of Object.keys(g)) {
@@ -313,18 +313,26 @@ _acs_preset_field() {
 # ----------------------------------------------------------------------------
 
 # 用 node 计算显示宽度（CJK/全角按 2 列）；$1=文本
+# 纯 bash 显示宽度计算（中文/全角 2 列、其余 1 列，码点范围与 node 版一致）；
+# 不 spawn node——宽度函数被逐行渲染调用，进程开销会随菜单行数放大
 _acs_disp_width() {
-    node -e '
-      let w = 0;
-      for (const ch of String(process.argv[1] ?? "")) {
-        const c = ch.codePointAt(0);
-        w += ((c>=0x1100&&c<=0x115F)||(c>=0x2E80&&c<=0x303E)||(c>=0x3041&&c<=0x33FF)||(c>=0x3400&&c<=0x4DBF)||
+    local s="$1" i ch c w=0
+    for ((i = 0; i < ${#s}; i++)); do
+        ch="${s:i:1}"
+        printf -v c '%d' "'$ch" 2>/dev/null || c=63
+        if (( (c>=0x1100&&c<=0x115F)||(c>=0x2E80&&c<=0x303E)||(c>=0x3041&&c<=0x33FF)||(c>=0x3400&&c<=0x4DBF)||
               (c>=0x4E00&&c<=0x9FFF)||(c>=0xA000&&c<=0xA4CF)||(c>=0xAC00&&c<=0xD7A3)||(c>=0xF900&&c<=0xFAFF)||
               (c>=0xFE30&&c<=0xFE4F)||(c>=0xFF00&&c<=0xFF60)||(c>=0xFFE0&&c<=0xFFE6)||(c>=0x1F300&&c<=0x1FAFF)||
-              (c>=0x20000)) ? 2 : 1;
-      }
-      console.log(w);
-    ' "$1" 2>/dev/null
+              (c>=0x20000) )); then
+            w=$((w+2)); else w=$((w+1)); fi
+    done
+    printf '%s' "$w"
+}
+
+# 按显示宽度补格：返回补齐到 $2 列所需的空格串（宽度已超时返回空，负差防护）
+_acs_pad() {
+    local kw=$(( $2 - $(_acs_disp_width "$1") )); (( kw < 0 )) && kw=0
+    printf '%*s' "$kw" ""
 }
 
 # 菜单条目一次成型：取条目 + key 列宽 + desc 按 CJK 显示宽度截断（原 entries+menu_rows 两次 node 合并）
@@ -345,7 +353,7 @@ _acs_menu_entries() {
       };
       let g = {};
       try {
-        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8").replace(/^\uFEFF/, ""));
         g = j[process.env.ACS_CLI] || {};
       } catch (e) {}
       const clean = s => String(s).replace(/[\t\r\n\x1f]+/g, " ");
@@ -359,7 +367,7 @@ _acs_menu_entries() {
       }
       if (rows.length === 0) process.exit(0);
       let mw = 10;
-      for (const [k] of rows) mw = Math.max(mw, Math.min(14, k.length + 1));
+      for (const [k] of rows) mw = Math.max(mw, Math.min(14, width(k) + 1));
       console.log(String(mw));
       const max = parseInt(process.env.ACS_TW || "100", 10) - mw - 17;
       for (const [k, d] of rows) process.stdout.write(k + "\x1f" + fit(d, max) + "\x1f" + d + "\n");
@@ -405,7 +413,7 @@ _acs_cli_meta() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         const F = ["name","cmd","adapter","launchStyle","probePath","configFormat","configFile","keyEnvPrefix","keyEnv","baseUrlEnv","modelEnv","multiModel"];
         for (const k of Object.keys(j)) {
           if (k.startsWith("_")) continue;
@@ -495,7 +503,7 @@ _acs_key_width() {
     local w=10 k l _d
     while IFS=$'\t' read -r k _d; do
         [ -z "$k" ] && continue
-        l=$(( ${#k} + 1 )); [ "$l" -gt 14 ] && l=14
+        l=$(( $(_acs_disp_width "$k") + 1 )); [ "$l" -gt 14 ] && l=14
         [ "$l" -gt "$w" ] && w=$l
     done <<< "$1"
     printf '%s' "$w"
@@ -511,13 +519,15 @@ _acs_clear_env() {
 # 画一行供应商。信息层级：desc 显示名为主信息（默认亮色），key 为次要（暗色），序号黄色锚点
 # $1=idx $2=idxw $3=key $4=desc $5=last(1/0) $6=keyw $7=note $8=高亮(1/0，方向键模式用，可选)
 _acs_row() {
-    local mark="" note=""
+    local mark="" note="" kw
     [ "$5" = "1" ] && mark=$'  \e[32m● 上次\e[0m'
     [ -n "$7" ] && note=$'  \e[2m'"$7"$'\e[0m'
+    # key 列按 CJK 显示宽度补格（%-*s 按字符数计，中文 key 会造成 Desc 列错位）
+    kw=$(( $6 - $(_acs_disp_width "$3") )); (( kw < 0 )) && kw=0
     if [ "$8" = "1" ]; then
-        printf ' \e[33m▸\e[0m \e[33m[%*d]\e[0m \e[36m%-*s\e[0m  \e[36m%s\e[0m%s%s\n' "$2" "$1" "$6" "$3" "$4" "$note" "$mark"
+        printf ' \e[33m▸\e[0m \e[33m[%*d]\e[0m \e[36m%s%*s\e[0m  \e[36m%s\e[0m%s%s\n' "$2" "$1" "$3" "$kw" "" "$4" "$note" "$mark"
     else
-        printf '   \e[33m[%*d]\e[0m \e[2m%-*s\e[0m  %s%s%s\n' "$2" "$1" "$6" "$3" "$4" "$note" "$mark"
+        printf '   \e[33m[%*d]\e[0m \e[2m%s%*s\e[0m  %s%s%s\n' "$2" "$1" "$3" "$kw" "" "$4" "$note" "$mark"
     fi
 }
 
@@ -582,14 +592,16 @@ _acs_select() {
     # 行打印；$1=序号 $2=高亮序号（显示序号 = base + 数组下标；lbl 须在 i 赋值后单独计算，
     # 同一条 local 里 $((base+i)) 会取到外层作用域的旧 i）
     _acs_sel_row() {
-        local i="$1" hi="$2" mark="" note="" lbl
+        local i="$1" hi="$2" mark="" note="" lbl kw
         lbl=$(( base + i ))
         [ "${rlast[$i]}" = "1" ] && mark=$'  \e[32m● 上次\e[0m'
         [ -n "${rnote[$i]}" ] && note=$'  \e[2m'"${rnote[$i]}"$'\e[0m'
+        # key 列按 CJK 显示宽度补格（printf %-Ns 按字符数计，中文 key 会造成 Desc 列错位）
+        kw=$(( keyw - $(_acs_disp_width "${rkey[$i]}") )); (( kw < 0 )) && kw=0
         if [ "$i" = "$hi" ]; then
-            printf ' \e[33m▸\e[0m \e[33m[%*d]\e[0m \e[36m%-*s\e[0m  \e[36m%s\e[0m%s%s\n' "$idxw" "$lbl" "$keyw" "${rkey[$i]}" "${rdesc[$i]}" "$note" "$mark" > "$disp"
+            printf ' \e[33m▸\e[0m \e[33m[%*d]\e[0m \e[36m%s%*s\e[0m  \e[36m%s\e[0m%s%s\n' "$idxw" "$lbl" "${rkey[$i]}" "$kw" "" "${rdesc[$i]}" "$note" "$mark" > "$disp"
         else
-            printf '   \e[33m[%*d]\e[0m \e[2m%-*s\e[0m  %s%s%s\n' "$idxw" "$lbl" "$keyw" "${rkey[$i]}" "${rdesc[$i]}" "$note" "$mark" > "$disp"
+            printf '   \e[33m[%*d]\e[0m \e[2m%s%*s\e[0m  %s%s%s\n' "$idxw" "$lbl" "${rkey[$i]}" "$kw" "" "${rdesc[$i]}" "$note" "$mark" > "$disp"
         fi
     }
     # 提示行
@@ -692,7 +704,7 @@ _acs_official_login() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         if (j.oauthAccount && j.oauthAccount.emailAddress) { console.log(j.oauthAccount.emailAddress); process.exit(0); }
       } catch (e) {}
       process.exit(1);
@@ -778,7 +790,7 @@ _acs_all_clis() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         for (const k of Object.keys(j)) if (!k.startsWith("_")) console.log(k);
       } catch (e) {}
     ' "$_ACS_CLIS" 2>/dev/null
@@ -789,7 +801,7 @@ _acs_hybrid_clis() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         for (const k of Object.keys(j)) {
           if (!k.startsWith("_") && j[k].adapter === "hybrid") console.log(k);
         }
@@ -802,7 +814,7 @@ _acs_hybrid_entry_count() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         const g = j[process.argv[2]] || {};
         let n = 0;
         for (const k of Object.keys(g)) {
@@ -825,8 +837,8 @@ _acs_import() {
           const acs = path.join(os.homedir(), ".acs", "suppliers.json");
           if (!fs.existsSync(ccs)) { console.log("  \u2718 未找到 ccs 配置 ~/.claude/suppliers.json（未装过 ccs 则无需迁移）"); process.exit(0); }
           let c, a = {};
-          try { c = JSON.parse(fs.readFileSync(ccs, "utf8")); } catch (e) { console.log("  \u2718 ccs 配置解析失败"); process.exit(1); }
-          try { a = JSON.parse(fs.readFileSync(acs, "utf8")); } catch (e) {}
+          try { c = JSON.parse(fs.readFileSync(ccs, "utf8").replace(/^\uFEFF/, "")); } catch (e) { console.log("  \u2718 ccs 配置解析失败"); process.exit(1); }
+          try { a = JSON.parse(fs.readFileSync(acs, "utf8").replace(/^\uFEFF/, "")); } catch (e) {}
           if (!a.claude || typeof a.claude !== "object") a.claude = {};
           let n = 0, skip = 0;
           for (const k of Object.keys(c)) {
@@ -852,7 +864,7 @@ _acs_import() {
           if (!fs.existsSync(sf)) { console.log("  \u2718 未找到 ~/.claude/settings.json（Claude Code 尚未配置过）"); process.exit(0); }
           let url = "", tok = "";
           try {
-            const j = JSON.parse(fs.readFileSync(sf, "utf8"));
+            const j = JSON.parse(fs.readFileSync(sf, "utf8").replace(/^\uFEFF/, ""));
             if (j.env) {
               url = String(j.env.ANTHROPIC_BASE_URL || "");
               tok = String(j.env.ANTHROPIC_AUTH_TOKEN || j.env.ANTHROPIC_API_KEY || "");
@@ -861,7 +873,7 @@ _acs_import() {
           if (!url && !tok) { console.log("  \u2718 settings.json 无 ANTHROPIC_* 供应商配置，无需捕获"); process.exit(0); }
           const acs = path.join(os.homedir(), ".acs", "suppliers.json");
           let a = {};
-          try { a = JSON.parse(fs.readFileSync(acs, "utf8")); } catch (e) {}
+          try { a = JSON.parse(fs.readFileSync(acs, "utf8").replace(/^\uFEFF/, "")); } catch (e) {}
           if (!a.claude || typeof a.claude !== "object") a.claude = {};
           if (a.claude.imported) { console.log("  \u26a0 条目 imported 已存在，跳过"); process.exit(0); }
           const env = {};
@@ -959,14 +971,14 @@ _acs_add() {
         pw=$(node -e '
           const fs = require("fs");
           try {
-            const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
             const ps = (j[process.argv[2]] || {}).presets || {};
             console.log(String((ps[process.argv[3]] || {}).warn || ""));
           } catch (e) {}
         ' "$_ACS_CLIS" "$cli" "$pid" 2>/dev/null)
         rows4="${rows4}${pid}"$'\x1f'"${pd}"$'\x1f'"${pw}"$'\x1f'"0"$'\n'
         pids4+=("$pid")
-        l4=$(( ${#pid} + 1 )); [ "$l4" -gt 14 ] && l4=14
+        l4=$(( $(_acs_disp_width "$pid") + 1 )); [ "$l4" -gt 14 ] && l4=14
         [ "$l4" -gt "$keyw4" ] && keyw4=$l4
         n4=$((n4 + 1))
     done <<< "$presets"
@@ -1163,7 +1175,7 @@ _acs_add() {
     duphits=$(ACS_DATA="$_ACS_DATA" ACS_CLI="$cli" ACS_ID="$id" ACS_KV="$key" node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8").replace(/^\uFEFF/, ""));
         const kv = String(process.env.ACS_KV || "");
         const hits = [];
         if (kv.length >= 10) {
@@ -1203,7 +1215,7 @@ _acs_edit() {
     entryjson=$(node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         const g = j[process.argv[2]] || {};
         for (const k of Object.keys(g)) {
           if (k.toLowerCase() === process.argv[3].toLowerCase()) {
@@ -1328,7 +1340,7 @@ _acs_remove() {
       const fs = require("fs");
       const env = process.env;
       let j = {};
-      try { j = JSON.parse(fs.readFileSync(env.ACS_DATA, "utf8")); } catch (e) { process.exit(1); }
+      try { j = JSON.parse(fs.readFileSync(env.ACS_DATA, "utf8").replace(/^\uFEFF/, "")); } catch (e) { process.exit(1); }
       const g = j[env.ACS_CLI];
       if (!g) process.exit(1);
       for (const k of Object.keys(g)) {
@@ -1356,7 +1368,7 @@ _acs_entry_has_env() {
     node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8").replace(/^\uFEFF/, ""));
         const g = j[process.argv[2]] || {};
         const want = String(process.argv[3]).toLowerCase();
         for (const k of Object.keys(g)) {
@@ -1407,7 +1419,7 @@ _acs_remove_interactive() {
       const fs = require("fs");
       const env = process.env;
       let j = {};
-      try { j = JSON.parse(fs.readFileSync(env.ACS_DATA, "utf8")); } catch (e) { process.exit(1); }
+      try { j = JSON.parse(fs.readFileSync(env.ACS_DATA, "utf8").replace(/^\uFEFF/, "")); } catch (e) { process.exit(1); }
       const g = j[env.ACS_CLI];
       if (!g) process.exit(1);
       for (const k of Object.keys(g)) {
@@ -1452,7 +1464,7 @@ _acs_set_preset_field() {
     ACS_DATA="$_ACS_DATA" node -e '
       const fs = require("fs"), env = process.env;
       try {
-        const j = JSON.parse(fs.readFileSync(env.ACS_DATA, "utf8"));
+        const j = JSON.parse(fs.readFileSync(env.ACS_DATA, "utf8").replace(/^\uFEFF/, ""));
         const g = j[env.ACS_CLI] || {};
         for (const k of Object.keys(g)) {
           if (k.toLowerCase() === env.ACS_PROV.toLowerCase()) {
@@ -1480,7 +1492,7 @@ _acs_recheck() {
     key=$(ACS_DATA="$_ACS_DATA" node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8").replace(/^\uFEFF/, ""));
         const g = j[process.argv[1]] || {};
         for (const k of Object.keys(g)) {
           if (k.toLowerCase() === process.argv[2].toLowerCase()) {
@@ -1562,7 +1574,7 @@ _acs_group_has_real() {
     ACS_DATA="$_ACS_DATA" ACS_CLI="$1" node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8").replace(/^\uFEFF/, ""));
         const g = j[process.env.ACS_CLI] || {};
         for (const k of Object.keys(g)) {
           const e = g[k];
@@ -1615,7 +1627,7 @@ _acs_status() {
     done < <(ACS_DATA="$_ACS_DATA" node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8").replace(/^\uFEFF/, ""));
         for (const k of Object.keys(j)) {
           if (k.startsWith("_") || !j[k] || typeof j[k] !== "object") continue;
           console.log(k + "\x1f" + Object.keys(j[k]).length);
@@ -1630,7 +1642,7 @@ _acs_status() {
         pv="${pcnt[$oid]:-0}"
         pcfg="未配置"
         [ "$pv" -gt 0 ] 2>/dev/null && pcfg="$pv 个供应商"
-        printf '    %-11s %s · %s' "$oid" "${_ACS_M_NAME[$oid]}" "$pcfg"
+        printf '    %s%s %s · %s' "$oid" "$(_acs_pad "$oid" 11)" "${_ACS_M_NAME[$oid]}" "$pcfg"
         # hybrid 条目预置状态并入概览行（未安装的 hybrid 不占行：未装则预置无意义）
         if [ "${_ACS_M_ADAPTER[$oid]}" = "hybrid" ] && [ "$pv" -gt 0 ] 2>/dev/null; then
             hcnt=$(_acs_hybrid_entry_count "$oid")
@@ -1679,7 +1691,7 @@ _acs_status() {
             tokurl=$(ACS_DATA="$_ACS_DATA" ACS_CLI="$cli" ACS_ENTRY="$k" ACS_K="$keyEnv" ACS_U="$urlEnv" ACS_HYB="$([ "${_ACS_M_ADAPTER[$cli]:-}" = "hybrid" ] && echo 1 || echo 0)" node -e '
               const fs = require("fs");
               try {
-                const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8"));
+                const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8").replace(/^\uFEFF/, ""));
                 const g = j[process.env.ACS_CLI] || {};
                 for (const kk of Object.keys(g)) {
                   if (kk.toLowerCase() === process.env.ACS_ENTRY.toLowerCase()) {
@@ -1702,7 +1714,7 @@ _acs_status() {
             tok="${tokurl%%$'\x1f'*}"
             url="${tokurl#*$'\x1f'}"
             if [ -z "$tok" ] && [ -z "$url" ]; then
-                printf '      %-*s  OAuth 官方入口\n' "$w2" "$k"
+                printf '      %s%s  OAuth 官方入口\n' "$k" "$(_acs_pad "$k" "$w2")"
                 continue
             fi
             fp="无 Key"
@@ -1716,7 +1728,7 @@ _acs_status() {
             fi
             host2="$url"
             [[ "$url" =~ ^[a-zA-Z]+://([^/]+) ]] && host2="${BASH_REMATCH[1]}"
-            printf '      %-*s %s  → %s\n' "$w2" "$k" "$fp" "$host2"
+            printf '      %s%s %s  → %s\n' "$k" "$(_acs_pad "$k" "$w2")" "$fp" "$host2"
         done <<< "$list"
     done <<< "$active"
     [ -n "$onlyoff" ] && printf '    \e[2m仅官方入口  %s\e[0m\n' "$onlyoff"
@@ -1757,13 +1769,15 @@ _acs_uninstall_mount() {
     printf '  \e[32m✔ 已移除挂载: %s\e[0m\n' "$p"
 }
 
-# acs uninstall：完全卸载（移除三端挂载 + ~/.acs 全部数据，回归安装前状态；需确认）
+# acs uninstall：完全卸载（移除三端挂载 + ~/.acs 全部数据，回归安装前状态）
+# 单步三选菜单（复用 _acs_select）：默认高亮"备份后卸载"，回车即最安全结果；
+# 备份失败即中止卸载，绝不出现"备份没成但数据删了"
 _acs_uninstall() {
     local count=0
     count=$(ACS_DATA="$_ACS_DATA" node -e '
       const fs = require("fs");
       try {
-        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8"));
+        const j = JSON.parse(fs.readFileSync(process.env.ACS_DATA, "utf8").replace(/^\uFEFF/, ""));
         let n = 0;
         for (const k of Object.keys(j)) {
           if (k.startsWith("_") || !j[k] || typeof j[k] !== "object") continue;
@@ -1778,12 +1792,50 @@ _acs_uninstall() {
     printf '  将移除：\n'
     printf '    · 三端挂载（PS7 / PS5.1 / Git Bash Profile 中的 acs 挂载块）\n'
     printf '    · 程序文件与全部数据 %s\n' "$_ACS_DIR"
-    printf '    \e[33m· suppliers.json 的全部数据（当前 %s 个供应商，含明文 API Key，删除后不可恢复）\e[0m\n' "$count"
-    printf '  如需保留供应商配置，请先自行备份该文件后再卸载\n'
+    if [ "$count" -gt 0 ]; then
+        printf '    \e[33m· suppliers.json 的全部数据（当前 %s 个供应商，含明文 API Key）\e[0m\n' "$count"
+    else
+        printf '    \e[33m· suppliers.json（当前无供应商数据）\e[0m\n'
+    fi
     echo
-    local r
-    printf '  \e[33m确认完全卸载? (y/N) ▸ \e[0m'; IFS= read -r r
-    [ "${r,,}" = "y" ] || { printf '  \e[2m已取消。\e[0m\n'; return 0; }
+    # 单步三选：行数据 key US desc US note US last；Key 即选项词（中文，别名 backup/keep/cancel 仍可输入）；
+    # Desc 统一留空、说明全放 Note（避免全角括号字形偏移破坏视觉对齐）；行输入空回车 = 备份后卸载
+    local rows3 keyw3=12 picked
+    rows3="备份后卸载"$'\x1f'""$'\x1f'"推荐 · 供应商配置保存到用户目录后移除"$'\x1f'"0"$'\n'
+    rows3+="直接卸载"$'\x1f'""$'\x1f'"API Key 与全部数据永久删除，不可恢复"$'\x1f'"0"$'\n'
+    rows3+="取消"$'\x1f'""$'\x1f'"什么都不做"$'\x1f'"0"
+    # 解析降级行输入：回车 = 默认（备份后卸载）
+    _uninstall_parse() {
+        local t="${1,,}"
+        case "$t" in
+            ''|1|b|backup|备份|备份后卸载)   printf 'ok\t备份后卸载\n' ;;
+            2|d|keep|直接|直接卸载)          printf 'ok\t直接卸载\n' ;;
+            3|c|cancel|q|取消)               printf 'ok\t取消\n' ;;
+            *)                               printf 'err\t请输入 1-3（或 备份 / 直接 / 取消）\n' ;;
+        esac
+    }
+    picked=$(_acs_select '请选择数据处置方式' '↑↓ 移动 · Enter 确认 · Esc 取消' "$rows3" "$keyw3" 0 _uninstall_parse '' '回车=备份后卸载（推荐）；输入 1-3 或 备份/直接/取消' 1)
+    if [ "$picked" != "备份后卸载" ] && [ "$picked" != "直接卸载" ]; then
+        printf '  \e[2m已取消。\e[0m\n'
+        return 0
+    fi
+    # 备份：suppliers.json 原样字节副本 → 用户目录（秒级时间戳防多次卸载互相覆盖）；失败即中止
+    if [ "$picked" = "备份后卸载" ]; then
+        if [ -f "$_ACS_DATA" ]; then
+            local backup="$HOME/acs-suppliers-backup-$(date +%Y%m%d-%H%M%S).json" bwin
+            if cp "$_ACS_DATA" "$backup" 2>/dev/null; then
+                bwin="$backup"
+                command -v cygpath >/dev/null 2>&1 && bwin="$(cygpath -w "$backup")"
+                printf '  \e[32m✔ 已备份供应商配置: %s\e[0m\n' "$bwin"
+                printf '  \e[2m（含明文 API Key，请妥善保管；重装后复制回 ~/.acs/suppliers.json 即可恢复）\e[0m\n'
+            else
+                printf '  \e[31m✘ 备份失败，已中止卸载（数据未删除）\e[0m\n'
+                return 1
+            fi
+        else
+            printf '  \e[33m⚠ 未找到供应商配置 %s，跳过备份\e[0m\n' "$_ACS_DATA"
+        fi
+    fi
     # 1. 移除三端挂载块（Documents 可能被 OneDrive 重定向）
     local doc="" c
     for c in "$USERPROFILE/Documents" "$USERPROFILE/OneDrive/Documents" "$USERPROFILE/OneDrive/文档"; do

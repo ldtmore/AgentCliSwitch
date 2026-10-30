@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.4.2（2026-10-30）
+
+### 🐛 修复
+
+- **远程安装链路重建**：原 `irm install.ps1 | iex` 因文件带 BOM 必现解析报错，
+  且归档下载依赖墙外 codeload——新增无 BOM 的 `install-remote.ps1` / `uninstall-remote.ps1`
+  远程引导脚本（jsDelivr 优先 + raw 回退，大陆可直连），安装逻辑保持 install.ps1 单一来源
+- **编码矩阵修复**：挂载/卸载 Profile 与 .bashrc 改按 BOM 探测编码 + Latin-1 字节透明往返
+  （UTF-16 文件保持原编码、无 BOM 中文不再被 PS5.1 按 ANSI 误解后永久乱码）；
+  "上次使用"记录改 UTF-8 无 BOM + LF 写入（原 ASCII 会损坏中文供应商名，CRLF 会混入 Git Bash 解析）
+- **Git Bash 端 BOM 免疫**：全部 39 处 node `JSON.parse` 读取链剥 BOM——记事本编辑过的
+  suppliers.json（带 BOM）不再使 Git Bash 端整体不可用
+- 卸载挂载块后的尾部空行残留
+
+### ✨ 新增
+
+- `acs uninstall` 交互重做：单步三选菜单（**备份后卸载**·默认 / 直接卸载 / 取消，Esc 取消），
+  供应商配置自动备份到用户目录（`~\acs-suppliers-backup-<时间戳>.json`，含明文 Key 警示与
+  重装恢复指引），备份失败即中止卸载
+- CI `check-encoding`：.ps1 BOM 构形 / .sh·.mjs·.json 换行与 BOM / 引导脚本纯 ASCII /
+  config JSON 语法守护
+
+### 🔧 改进
+
+- **CJK 显示宽度统一**：双端全部菜单的 key 列填充与列宽计算改按显示列口径
+  （中文供应商名、中文选项词不再造成 Desc 列错位）；bash 端宽度计算改纯 bash 实现
+  （去除逐行 node 进程开销）
+- README：一键安装 / 一键卸载双命令并列（jsDelivr 默认源）、维护者发布流程（jsDelivr purge）
+
 ## v0.4.1（2026-10-15）
 
 ### ✨ 新增

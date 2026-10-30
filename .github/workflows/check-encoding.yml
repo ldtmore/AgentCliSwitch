@@ -1,0 +1,17 @@
+# 编码守护: 校验 .ps1 BOM 构形（本地执行带 BOM / 远程引导无 BOM）、
+# .sh/.mjs/.json 的 LF 与无 BOM、uninstall-remote 纯 ASCII、config JSON 语法。
+# 规约详见 .github/scripts/check-encoding.sh 头注。
+name: check-encoding
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check-encoding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: BOM 构形 / 换行符 / 纯 ASCII / JSON 语法校验
+        run: bash .github/scripts/check-encoding.sh
