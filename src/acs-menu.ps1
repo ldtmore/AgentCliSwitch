@@ -18,7 +18,7 @@ $script:AcsLastFile = Join-Path $script:AcsDir '.last'
 function Get-AcsClis {
     param([switch]$Quiet)
     if (-not (Test-Path $script:AcsClisFile)) {
-        if (-not $Quiet) { Write-Host '  ✘ 找不到 CLI 知识库 ~\.acs\clis.json（请重新运行安装脚本）' -ForegroundColor Red }
+        if (-not $Quiet) { Write-Host ('  ✘ 找不到 CLI 知识库 {0}（请重新运行安装脚本）' -f $script:AcsClisFile) -ForegroundColor Red }
         return $null
     }
     try {
@@ -44,7 +44,7 @@ function Get-AcsClis {
 function Get-AcsSupplierMap {
     param([switch]$Quiet)
     if (-not (Test-Path $script:AcsDataFile)) {
-        if (-not $Quiet) { Write-Host '  ✘ 找不到供应商配置 ~\.acs\suppliers.json（请先运行 acs add）' -ForegroundColor Red }
+        if (-not $Quiet) { Write-Host ('  ✘ 找不到供应商配置 {0}（运行 acs add 可添加）' -f $script:AcsDataFile) -ForegroundColor Red }
         return $null
     }
     try {
@@ -936,7 +936,7 @@ function Add-AcsSupplier {
     if ($cliDef.presets) {
         foreach ($p in $cliDef.presets.PSObject.Properties) { $presetIds += $p.Name; $presetDescs += [string]$p.Value.desc }
     }
-    if ($presetIds.Count -eq 0) { Write-Host '  ✘ 该 CLI 没有内置预设，请手编 suppliers.json' -ForegroundColor Red; return }
+    if ($presetIds.Count -eq 0) { Write-Host ('  ✘ 该 CLI 没有内置预设，请手编供应商配置 {0}' -f $script:AcsDataFile) -ForegroundColor Red; return }
     # 选择预设：方向键选择器（warn 提示作行尾暗色备注）
     $rows = @()
     for ($i = 0; $i -lt $presetIds.Count; $i++) {
@@ -1696,7 +1696,7 @@ function Show-AcsStatus {
     Write-Host ''
     Write-Host '  体检' -ForegroundColor Cyan
     if ($dups.Count -gt 0) {
-        Write-Host ('    ⚠ Key 重复: {0}（如非有意，请检查 suppliers.json）' -f ($dups -join '；')) -ForegroundColor Yellow
+        Write-Host ('    ⚠ Key 重复: {0}（如非有意，请检查 {1}）' -f ($dups -join '；'), $script:AcsDataFile) -ForegroundColor Yellow
     } else {
         Write-Host '    ✔ 无重复 Key' -ForegroundColor DarkGray
     }
@@ -1810,7 +1810,7 @@ function Invoke-AcsUninstall {
                 Copy-Item $script:AcsDataFile $backupPath -ErrorAction Stop
                 Write-Host ''
                 Write-Host ('  ✔ 已备份供应商配置: {0}' -f (Resolve-Path $backupPath).Path) -ForegroundColor Green
-                Write-Host '    （含明文 API Key，请妥善保管；重装后复制回 ~\.acs\suppliers.json 即可恢复）' -ForegroundColor DarkGray
+                Write-Host ('    （含明文 API Key，请妥善保管；重装后复制回 {0} 即可恢复）' -f $script:AcsDataFile) -ForegroundColor DarkGray
             } catch {
                 Write-Host ('  ✘ 备份失败: {0}' -f $_.Exception.Message) -ForegroundColor Red
                 Write-Host '  已中止卸载（数据未删除）。可重试，或先手动备份后再运行。' -ForegroundColor Yellow

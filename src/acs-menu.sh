@@ -18,7 +18,7 @@ _ACS_LAST="$_ACS_DIR/.last"
 
 # 列出 suppliers.json 里配置过的 CLI（每行一个），过滤 _ 开头元数据键
 _acs_active_clis() {
-    [ -f "$_ACS_DATA" ] || { echo "  ✘ 找不到供应商配置 ~/.acs/suppliers.json（先运行 acs add）" >&2; return 1; }
+    [ -f "$_ACS_DATA" ] || { echo "  ✘ 找不到供应商配置 $(_acs_winpath "$_ACS_DATA")（先运行 acs add 可添加）" >&2; return 1; }
     command -v node >/dev/null 2>&1 || { echo "  ✘ 需要 node 解析 JSON（请检查 node 安装）" >&2; return 1; }
     node -e '
       const fs = require("fs");
@@ -333,6 +333,12 @@ _acs_disp_width() {
 _acs_pad() {
     local kw=$(( $2 - $(_acs_disp_width "$1") )); (( kw < 0 )) && kw=0
     printf '%*s' "$kw" ""
+}
+
+# 转 Windows 风格路径供用户在资源管理器/编辑器中使用（Git Bash 的 /c/... 对小白无意义；
+# 无 cygpath 的环境回退原样）。仅错误/指引提示调用，非热路径
+_acs_winpath() {
+    if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi
 }
 
 # 菜单条目一次成型：取条目 + key 列宽 + desc 按 CJK 显示宽度截断（原 entries+menu_rows 两次 node 合并）
@@ -922,7 +928,7 @@ _acs_add() {
     # 第一步：确定 CLI（方向键选择器 + 未安装标注；避免为未安装的 CLI 走完向导才发现装不了）
     if [ -z "$cli" ]; then
         mapfile -t ids < <(_acs_all_clis)
-        [ "${#ids[@]}" -gt 0 ] || { printf '  \e[31m✘ clis.json 不可用\e[0m\n'; return 1; }
+        [ "${#ids[@]}" -gt 0 ] || { printf '  \e[31m✘ 找不到 CLI 知识库 %s（请重新运行安装脚本）\e[0m\n' "$(_acs_winpath "$_ACS_CLIS")"; return 1; }
         local rows3="" note3 cname3 ccmd3 c3 l3 keyw3=10 picked3
         for c3 in "${ids[@]}"; do
             note3=""
@@ -963,7 +969,7 @@ _acs_add() {
     # 第二步：选预设（方向键选择器；warn 提示作行尾暗色备注，不进入显示名）
     local presets pline
     presets=$(_acs_presets "$cli")
-    [ -n "$presets" ] || { printf '  \e[31m✘ 该 CLI 没有内置预设，请手编 suppliers.json\e[0m\n'; return 1; }
+    [ -n "$presets" ] || { printf '  \e[31m✘ 该 CLI 没有内置预设，请手编供应商配置 %s\e[0m\n' "$(_acs_winpath "$_ACS_DATA")"; return 1; }
     local rows4="" pw pid pd purl pm pnb pproto penv pmf n4=0 keyw4=10 l4 p4 picked4
     local pids4=()
     while IFS=$'\x1f' read -r pid pd purl pm pnb pproto penv pmf; do
@@ -1736,7 +1742,7 @@ _acs_status() {
     echo
     printf '  \e[36m体检\e[0m\n'
     if [ -n "$dups" ]; then
-        printf '    \e[33m⚠ Key 重复: %s（如非有意，请检查 suppliers.json）\e[0m\n' "$dups"
+        printf '    \e[33m⚠ Key 重复: %s（如非有意，请检查 %s）\e[0m\n' "$dups" "$(_acs_winpath "$_ACS_DATA")"
     else
         printf '    \e[2m✔ 无重复 Key\e[0m\n'
     fi
@@ -1827,7 +1833,7 @@ _acs_uninstall() {
                 bwin="$backup"
                 command -v cygpath >/dev/null 2>&1 && bwin="$(cygpath -w "$backup")"
                 printf '  \e[32m✔ 已备份供应商配置: %s\e[0m\n' "$bwin"
-                printf '  \e[2m（含明文 API Key，请妥善保管；重装后复制回 ~/.acs/suppliers.json 即可恢复）\e[0m\n'
+                printf '  \e[2m（含明文 API Key，请妥善保管；重装后复制回 %s 即可恢复）\e[0m\n' "$(_acs_winpath "$_ACS_DATA")"
             else
                 printf '  \e[31m✘ 备份失败，已中止卸载（数据未删除）\e[0m\n'
                 return 1

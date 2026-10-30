@@ -136,7 +136,7 @@ Write-Host ''
 Write-Ok '安装完成！接下来：'
 Write-Host ''
 Write-Host '    1. 新开一个终端（PowerShell 或 Git Bash）'
-Write-Host '    2. 运行 acs add 添加供应商（或编辑 ~\.acs\suppliers.json 填入 API Key）'
+Write-Host ('    2. 运行 acs add 添加供应商（或编辑 {0} 填入 API Key）' -f (Join-Path $acsDir 'suppliers.json'))
 Write-Host '    3. 运行 acs 开始切换'
 Write-Host '    4. acs status 随时体检排障；acs help 查看全部命令'
 Write-Host ''
