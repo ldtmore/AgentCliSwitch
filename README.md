@@ -161,14 +161,6 @@ irm https://raw.githubusercontent.com/ldtmore/AgentCliSwitch/main/uninstall-remo
 
 卸载后当前已开终端里的 `acs` 命令仍可用至窗口关闭，新开终端即完全还原。
 
-## 维护者备注：发布流程
-
-1. 更新双端菜单脚本的版本常量与 README / CHANGELOG 版本说明
-2. `git push`（直连失败可走代理）
-3. 逐文件访问 purge 链接强制刷新 jsDelivr 缓存（否则用户侧最多延迟 12~24h）：
-   `https://purge.jsdelivr.net/gh/ldtmore/AgentCliSwitch@main/<文件名>`
-4. 确认 GitHub Actions `check-encoding` 绿灯
-
 ## License
 
 MIT
